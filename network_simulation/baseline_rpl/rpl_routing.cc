@@ -60,7 +60,7 @@ void RplRouting::sendDIO(int sender){
     dio.etx = m_state[sender].etx;
 
     for(uint32_t i=0; i<m_nodes.GetN(); i++){
-        if(i==sender) continue;
+        if((int)i==sender) continue;
         if(isReachable(sender, i)){
             Simulator::Schedule(MilliSeconds(5), &RplRouting::receiveDIO, this, i, dio);
         }
