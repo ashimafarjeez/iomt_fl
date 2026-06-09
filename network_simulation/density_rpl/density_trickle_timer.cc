@@ -66,9 +66,6 @@ void DensityTrickleTimer::delayedStart(){
 void DensityTrickleTimer::startInterval(){
     //standard trickle transmission time selection
     m_c = 0;
-
-    std::cout<<Simulator::Now().GetSeconds()<<"\t"<<m_neighbourCnt<<std::endl;
-
     double Iby2 = m_current.GetSeconds()/2;
     double t = Iby2 + ((double)rand()/RAND_MAX) * Iby2;
     m_txEvent = Simulator::Schedule(Seconds(t), &DensityTrickleTimer::transmit, this); //transmission
@@ -79,9 +76,6 @@ void DensityTrickleTimer::startInterval(){
 }
 
 void DensityTrickleTimer::transmit(){
-
-    std::cout << "Transmission\t" << Simulator::Now().GetSeconds()<<std::endl;
-
     if(m_c < m_k && !m_callback.IsNull()){
         m_callback();
     }
