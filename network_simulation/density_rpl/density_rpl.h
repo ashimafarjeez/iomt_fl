@@ -102,6 +102,8 @@ class RplRouting{
         bool isReachable(int a, int b);
         double getDistance(int a, int b);
         double computeEtx(int a, int b);
+        void monitorSnifferRx(Ptr<const Packet> packet, uint16_t channelFreqMhz, WifiTxVector txVector, MpduInfo aMpdu, SignalNoiseDbm signalNoise, uint16_t staId);
+
     private:
         NodeContainer m_nodes;
         std::vector<RplNodeState> m_state;
@@ -116,6 +118,15 @@ class RplRouting{
         std::vector<Ptr<Socket>> m_dioSockets;
         std::vector<Ptr<Socket>> m_dataSockets;
         Ipv4InterfaceContainer m_interfaces;
+        double m_totRssi;
+        uint32_t m_rssiSamples;
+
+        std::map<std::pair<int,int>, uint32_t>m_dioSentCnt;
+        std::map<std::pair<int,int>, uint32_t>m_dioRecvCnt;
+
+        int m_cnt = 0;
+        int m_totHopCnt = 0;
 };
+
 
 #endif

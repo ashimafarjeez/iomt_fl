@@ -17,24 +17,24 @@ void MyTrickleTimer::setCallBack(std::function<void()>cb){
 
 void MyTrickleTimer::start(){
     //chk if some intervals are already running and if so, cancel them
-    // if(m_txEvent.IsRunning()){
-    //     m_txEvent.Cancel();
-    // }
-    // if(m_intervalEvent.IsRunning()){
-    //     m_intervalEVent.Cancel();
-    // }
+    if(m_txEvent.IsPending()){
+        m_txEvent.Cancel();
+    }
+    if(m_intervalEvent.IsPending()){
+        m_intervalEvent.Cancel();
+    }
 
     startInterval();
 }
 
 void MyTrickleTimer::reset(){
     //cancel all the old running startInterval calls
-    // if(m_txEvent.IsRunning){
-    //     m_txEvent.Cancel();
-    // }
-    // if(m_intervalEvent.IsRunning()){
-    //     m_intervalEvent.Cancel();
-    // }
+    if(m_txEvent.IsPending()){
+        m_txEvent.Cancel();
+    }
+    if(m_intervalEvent.IsPending()){
+        m_intervalEvent.Cancel();
+    }
 
     m_current = m_imin;
     startInterval();

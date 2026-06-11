@@ -5,6 +5,7 @@
 #include "ns3/mobility-module.h"
 #include "ns3/wifi-module.h"
 #include "ns3/internet-module.h"
+#include "ns3/rng-seed-manager.h"
 
 #include "../rpl/trickle_timer.h"
 #include "../rpl/rpl_routing.h"
@@ -22,6 +23,9 @@
 using namespace ns3;
 
 int main(){
+    RngSeedManager::SetSeed(1);
+    RngSeedManager::SetRun(1);
+
     NodeContainer nodes;
     nodes.Create(200);
 
@@ -57,6 +61,7 @@ int main(){
     Ipv4InterfaceContainer interfaces = address.Assign(devices);
 
     RplRouting rpl(nodes, interfaces);
+    Config::ConnectWithoutContext("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/MonitorSnifferRx", MakeCallback(&RplRouting::monitorSnifferRx, &rpl));
     rpl.initialize();
     rpl.startRoot();
 

@@ -16,6 +16,10 @@ RplRouting::RplRouting(NodeContainer &nodes, Ipv4InterfaceContainer interfaces):
     m_totDropped=0;
     m_totGenerated=0;
     m_nextSeq=0;
+    m_totRssi = 0;
+    m_rssiSamples = 0;
+    m_cnt = 0;
+    m_totHopCnt = 0;
 }
 
 void RplRouting::initialize(){
@@ -57,10 +61,18 @@ bool RplRouting::isReachable(int a, int b){
 }
 
 double RplRouting::computeEtx(int a, int b){ //higher etx -> poor
-    double d = getDistance(a,b);
-    //packet reception ratio - packets received/sent - approximated using 1-(dist/range)
-    double prr = std::max(0.1, 1.0-(d/m_range)); //prevent div by 0 by taking max
+    auto key = std::make_pair(a, b);
+    uint32_t sent = m_dioSentCnt[key];
+    uint32_t recv = m_dioRecvCnt[key];
+    if(sent<10) return 10.0;
+    double prr = (double)recv/sent;
+    if(prr<0.01) return 100.0;
     return 1.0/prr;
+
+    // double d = getDistance(a,b);
+    // //packet reception ratio - packets received/sent - approximated using 1-(dist/range)
+    // double prr = std::max(0.1, 1.0-(d/m_range)); //prevent div by 0 by taking max
+    // return 1.0/prr;
 }
 
 /*dio - control plane info and not application data
@@ -75,15 +87,14 @@ void RplRouting::sendDIO(int sender){
     hdr.setSender(sender);
     hdr.setRank(m_state[sender].rank);
     p->AddHeader(hdr);
-    int cnt = 0;
     for(uint32_t i=0; i<m_nodes.GetN(); i++){
         if((int)i==sender) continue;
         if(isReachable(sender, i)){
-            cnt++;
+            m_dioSentCnt[{sender,i}]++;
             m_dioSockets[sender]->SendTo(p->Copy(), 0, InetSocketAddress(m_interfaces.GetAddress(i), 9999));
         }
     }
-    std::cout<<sender<< " sent to "<<cnt<<" neighbours\n";
+    //std::cout<<sender<< " sent\n";
 
 
     // DioMessage dio;
@@ -105,7 +116,7 @@ void RplRouting::receiveDIO(int receiver, DioMessage dio){
     if(receiver==dio.sender) return;
     m_state[receiver].lastDioTime = Simulator::Now();
     m_state[receiver].dioReceived++;
-    double linkCost = computeEtx(receiver, dio.sender);
+    double linkCost = computeEtx(dio.sender, receiver);
     int candidateRank = dio.rank + (int) (linkCost*10); //rank if the sender was chosen as parent
 
     if(candidateRank < m_state[receiver].rank){
@@ -116,7 +127,8 @@ void RplRouting::receiveDIO(int receiver, DioMessage dio){
         m_state[receiver].joined = true;
         m_trickle[receiver].inconsistent(); //change in topology -> change in network state
         if(firstJoin){
-            std::cout<<receiver<<" joined via "<<dio.sender<<"\trank: "<<candidateRank<<std::endl;
+            m_cnt++;
+            //std::cout<<receiver<<" joined via "<<dio.sender<<"\trank: "<<candidateRank<<std::endl;
         }
     }else{
         m_trickle[receiver].consistent();
@@ -126,7 +138,7 @@ void RplRouting::receiveDIO(int receiver, DioMessage dio){
 void RplRouting::sendDAO(int nodeId){ //no actual dao yet
     int parent = m_state[nodeId].prefParent;
     if(parent==-1) return;
-    std::cout<<"DAO "<<nodeId<<" -> "<<parent<<std::endl;
+    //std::cout<<"DAO "<<nodeId<<" -> "<<parent<<std::endl;
 }
 
 //generate data packet
@@ -173,10 +185,24 @@ void RplRouting::printMetrics(){
     for(auto &s:m_state){
         totDio+=s.dioSent;
     }
+    int cnt =  0;
+    double totEtx = 0;
+    for(auto &s:m_state){
+        if(s.joined && s.nodeId!=0){
+            totEtx += s.etx;
+            cnt++;
+        }
+    }
+    if(cnt){
+        std::cout<<"Average ETX: "<<totEtx/cnt<<std::endl;
+    }
     std::cout<<"PDR: "<<pdr<<std::endl;
     std::cout<<"Average delay: "<<avgDelay<<std::endl;
     std::cout<<"Packet loss rate: "<<loss<<std::endl;
+    std::cout<<"RSSI: "<<m_totRssi/m_rssiSamples<<std::endl;
     std::cout<<"Total DIO: "<<totDio<<std::endl;
+    std::cout<<"Nodes joined: "<<m_cnt<<std::endl;
+    std::cout<<"Hop count: "<<m_totHopCnt<<std::endl;
 }
 
 
@@ -205,6 +231,7 @@ void RplRouting::receiveDioPacket(Ptr<Socket>socket){
     }
     DioMessage dio;
     dio.sender = hdr.getSender();
+    m_dioRecvCnt[{dio.sender, receiver}]++;
     dio.rank = hdr.getRank();
     dio.etx = 0;
     dio.version = 0;
@@ -236,9 +263,10 @@ void RplRouting::receiveDataPacket(Ptr<Socket>socket){
     }
     if(receiver==0){
         m_totDelivered++;
+        m_totHopCnt+=hdr.getHopCnt();
         double delay = (Simulator::Now().GetMicroSeconds() - hdr.getCreationTime())/1000000.0;
         m_totDelay+=delay;
-        std::cout<<"Delivered packet "<<hdr.getSeq()<< " from "<<hdr.getSrc()<<" hops = "<<hdr.getHopCnt()<<std::endl;
+        //std::cout<<"Delivered packet "<<hdr.getSeq()<< " from "<<hdr.getSrc()<<" hops = "<<hdr.getHopCnt()<<std::endl;
         return;
     }
     //gotta send the received packet to parent
@@ -251,6 +279,12 @@ void RplRouting::receiveDataPacket(Ptr<Socket>socket){
     //reattach packet with hdr
     p->AddHeader(hdr);
     m_dataSockets[receiver]->SendTo(p, 0, InetSocketAddress(m_interfaces.GetAddress(parent), 10000));
+}
+
+void RplRouting::monitorSnifferRx(Ptr<const Packet> packet, uint16_t channelFreqMhz, WifiTxVector txVector, MpduInfo aMpdu, SignalNoiseDbm signalNoise, uint16_t staId){
+    double rssi = signalNoise.signal;
+    m_totRssi+=rssi;
+    m_rssiSamples++;
 }
 
 

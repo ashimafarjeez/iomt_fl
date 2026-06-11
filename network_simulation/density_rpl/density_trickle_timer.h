@@ -13,6 +13,8 @@ class DensityTrickleTimer{
         void inconsistent();
         void setCallBack(Callback<void> cb);
         void setNeighbourCnt(uint32_t cnt);
+
+        void setEtx(double etx);
     private:
         void delayedStart();
         void startInterval();
@@ -26,5 +28,7 @@ class DensityTrickleTimer{
         EventId m_txEvent;
         EventId m_intervalEvent;
         Callback<void> m_callback;
+
+        double m_etx;
 };
 #endif
