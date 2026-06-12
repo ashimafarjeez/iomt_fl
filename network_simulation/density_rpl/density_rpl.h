@@ -67,10 +67,24 @@ class DataHeader: public Header{
         virtual void Serialize(Buffer::Iterator start) const;
         virtual uint32_t Deserialize(Buffer::Iterator start);
         virtual void Print(std::ostream &os) const;
+
+        void setHeartRate(uint32_t hr);
+        void setSpo2(uint32_t spo2);
+        void setSysBp(uint32_t sysBp);
+        void setDiaBp(uint32_t diaBp);
+        void setTemp(double temp);
+
+        uint32_t getHeartRate() const;
+        uint32_t getSpo2() const;
+        uint32_t getSysBp() const;
+        uint32_t getDiaBp() const;
+        double getTemp() const;
     private:
         uint32_t m_src, m_dest, m_seq, m_hopCnt;
         //seq->packet num
         uint64_t m_creationTime;
+
+        uint32_t m_heartRate, m_spo2, m_sysBp, m_diaBp, m_temp;
 };
 
 enum RplControlType{

@@ -168,6 +168,15 @@ void RplRouting::genPacket(int nodeId){
     hdr.setDest(0);
     hdr.setSeq(m_nextSeq++);
     hdr.setHopCnt(0);
+
+    //hardcoding for now
+    hdr.setHeartRate(96);
+    hdr.setSpo2(92);
+    hdr.setSysBp(101);
+    hdr.setDiaBp(89);
+    hdr.setTemp(30.92);
+
+
     hdr.setCreationTime(Simulator::Now().GetMicroSeconds());
     p->AddHeader(hdr);
     //SendTo(packet, flags, dest_addr) from this socket
@@ -272,6 +281,7 @@ void RplRouting::receiveDataPacket(Ptr<Socket>socket){
         }
     }
     if(receiver==0){
+        std::cout<<hdr.getHeartRate()<<" "<<hdr.getSpo2()<<" "<<hdr.getSysBp()<<" "<<hdr.getDiaBp()<<" "<<hdr.getTemp()<<" "<<std::endl;
         m_totDelivered++;
         m_totHopCnt+=hdr.getHopCnt();
         double delay = (Simulator::Now().GetMicroSeconds() - hdr.getCreationTime())/1000000.0;
@@ -386,6 +396,27 @@ void DataHeader::setCreationTime(uint64_t t){
     m_creationTime=t;
 }
 
+void DataHeader::setHeartRate(uint32_t hr){
+    m_heartRate=hr;
+}
+
+
+void DataHeader::setSpo2(uint32_t spo2){
+    m_spo2 = spo2;
+}
+
+void DataHeader::setSysBp(uint32_t sysBp){
+    m_sysBp = sysBp;
+}
+
+void DataHeader::setDiaBp(uint32_t diaBp){
+    m_diaBp = diaBp;
+}
+
+void DataHeader::setTemp(double temp){
+    m_temp = (uint32_t)(temp*100);
+}
+
 uint32_t DataHeader::getSrc() const{
     return m_src;
 }
@@ -406,6 +437,26 @@ uint64_t DataHeader::getCreationTime() const{
     return m_creationTime;
 }
 
+uint32_t DataHeader::getHeartRate() const{
+    return m_heartRate;
+}
+
+uint32_t DataHeader::getSpo2() const{
+    return m_spo2;
+}
+
+uint32_t DataHeader::getSysBp() const{
+    return m_sysBp;
+}
+
+uint32_t DataHeader::getDiaBp() const{
+    return m_diaBp;
+}
+
+double DataHeader::getTemp() const{
+    return m_temp/100.0;
+}
+
 TypeId DataHeader::GetTypeId(){
     static TypeId tid = TypeId("DataHeader").SetParent<Header>();
     return tid;
@@ -418,7 +469,7 @@ TypeId DataHeader::GetInstanceTypeId() const{
 }
 
 uint32_t DataHeader::GetSerializedSize() const{
-    return 24;
+    return 44;
 }
 
 //to convert data into bytes and write them into packets
@@ -429,6 +480,11 @@ void DataHeader::Serialize(Buffer::Iterator start) const{
     start.WriteHtonU32(m_seq);
     start.WriteHtonU32(m_hopCnt);
     start.WriteHtonU64(m_creationTime);
+    start.WriteHtonU32(m_heartRate);
+    start.WriteHtonU32(m_spo2);
+    start.WriteHtonU32(m_sysBp);
+    start.WriteHtonU32(m_diaBp);
+    start.WriteHtonU32(m_temp);
 }
 
 //reconstruct data from packets
@@ -438,12 +494,17 @@ uint32_t DataHeader::Deserialize(Buffer::Iterator start){
     m_seq = start.ReadNtohU32();
     m_hopCnt = start.ReadNtohU32();
     m_creationTime = start.ReadNtohU64();
-    return 24;
+    m_heartRate = start.ReadNtohU32();
+    m_spo2 = start.ReadNtohU32();
+    m_sysBp = start.ReadNtohU32();
+    m_diaBp = start.ReadNtohU32();
+    m_temp = start.ReadNtohU32();
+    return 44;
 }
 
 void DataHeader::Print(std::ostream &os) const{
     //write into the given output stream os
-    os<<"Src = "<<m_src<<" Dest = "<<m_dest<<" Seq = "<<m_seq<<" HopCnt = "<<m_hopCnt<<" Creation time = "<<m_creationTime;
+    os<<"Src = "<<m_src<<" Dest = "<<m_dest<<" Seq = "<<m_seq<<" HopCnt = "<<m_hopCnt<<" Creation time = "<<m_creationTime<<" Heart rate: "<<m_heartRate<<" SpO2: "<<m_spo2<<" Systolic BP: "<<m_sysBp<<" Diastolic BP: "<<m_diaBp<<" Temperature: "<<m_temp;
 }
 
 
